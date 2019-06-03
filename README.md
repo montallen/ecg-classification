@@ -20,6 +20,6 @@ Classification is done according to 4 different targets: Sinus Bradychardia, Fas
 Class Activation Map (CAM) is used to open the black box and understand where the network was looking at to carry out the classification.
 The folder "cam_plots" contains some plots of ECG. The red regions are the regions that the network judged most important.
 
-![cam]("https://github.com/AllenMont/ecg-classification/blob/master/cam_plots/21.png")
+![cam]("/cam_plots/21.png")
 
 More details about CAM can be found in http://cnnlocalization.csail.mit.edu/
