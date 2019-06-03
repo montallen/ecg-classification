@@ -3,6 +3,7 @@
 This repo contains the code and a poster of my final master project at the Technical University of Denmark, Lyngby. The thesis work is done in collaboration between DTU and the Laboratory of Experimental Cardiology, BMI, KU.
 
 The poster in the repo was presented at the 44th Annual Conference of the International Society of Computerized Electrocardiology (ISCE2019).
+
 Note that this is still an ongoing project. 
 
 
