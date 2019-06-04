@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-
 def plot_confusion_mat(cm,
                           target_names,
                           title='Confusion matrix',
@@ -213,15 +212,15 @@ def plot_cam_rhythm_2(beispiel, grads):
     
     
     #plt.show()
-def plot_cam_background(example, cam, df, n, target, y_true):
+def plot_cam_background(example, cam, df, target, y_true):
     x = np.arange(0,5001)    
     arrays = [cam.T for _ in range(1500)]
     a = np.stack(arrays, axis=0)
-    fig = plt.figure(figsize=(20,10))
+    plt.figure(figsize=(20,10))
     plt.imshow(a, cmap="autumn_r", origin='lower',extent=[x.min(),x.max(),-1000,2000])#example[1:].min(), example[1:].max()])
     plt.plot(example[1:], color='blue',lw=1)
     #testid = np.array(df.iloc[np.where(df.unnamed==n)].testid)[0]
-    hr=int(np.array(df.iloc[np.where(df.unnamed==n)].hr))
+    #hr=int(np.array(df.iloc[np.where(df.unnamed==n)].hr))
     
     y_tr = "Positive" if (np.argmax(y_true) == 1) else "Negative"
     plt.colorbar()
@@ -234,16 +233,28 @@ def get_n(testid,df, index):
     n = np.where(index==x)#ottieni un numero. Poi np.where(set_index==numero). Ottieni la n cercata
     return n[1][0]
 
-def plot_cam_background_median(example, cam, df, n, target, y_true):
+def plot_cam_background_median(example, cam, df, target, y_true):
     x = np.arange(0,601)    
     arrays = [cam.T for _ in range(1500)]
     a = np.stack(arrays, axis=0)
-    fig = plt.figure(figsize=(20,10))
+    plt.figure(figsize=(20,10))
     plt.imshow(a, cmap="autumn_r", origin='lower',extent=[x.min(),x.max(),-500,1000])#example[1:].min(), example[1:].max()])
     plt.plot(example[1:], color='blue',lw=1)
-    #testid = np.array(df.iloc[np.where(df.unnamed==n)].testid)[0]
-    hr=int(np.array(df.iloc[np.where(df.unnamed==n)].hr))
-    
     y_tr = "Positive" if (np.argmax(y_true) == 1) else "Negative"
+
     plt.colorbar()
-    plt.title("Target: " + target + ". Ground truth: " + str(y_tr))
+    plt.title("Target: " + target + ". Ground truth: " + y_tr)
+    
+def plot_roc(fpr, tpr, auc):
+    plt.figure()
+    ##Adding the ROC
+    plt.plot(fpr, tpr, color='red',
+     lw=2, label='ROC curve. AUC: %.2f' % auc)
+    ##Random FPR and TPR
+    plt.plot([0, 1], [0, 1], color='blue', lw=2, linestyle='--')
+    ##Title and label
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
+    plt.title('ROC curve')
+    plt.legend()
+    plt.show()

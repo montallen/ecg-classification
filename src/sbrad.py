@@ -1,40 +1,46 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import warnings
 
-from keras import Sequential
-from keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, Activation, GlobalAveragePooling1D
-from keras.layers import BatchNormalization, GlobalAveragePooling1D
-from keras.optimizers import SGD, Adam
+import tensorflow as tf
+
+from keras import Sequential, activations
+from keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout, BatchNormalization, GlobalAveragePooling1D
+from keras.optimizers import  Adam
 from keras.utils import to_categorical
-from keras.losses import categorical_crossentropy
-from keras.metrics import categorical_accuracy
-from keras import regularizers
 import keras.backend as K
 from keras.models import load_model
-import keras.activations
 
-
-from sklearn.model_selection import train_test_split
-from sklearn.utils import class_weight
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.metrics import roc_curve, auc
+
+from sklearn.model_selection import cross_validate
+
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.dummy import DummyClassifier
+
 from livelossplot import PlotLossesKeras
 from keract import get_activations, display_activations
 
-from ecgutils import plot_confusion_mat, smooth, plot_saliency, plot_cam_rhythm_2
-from ecgutils import get_n, plot_cam_background
+from ecgutils import plot_confusion_mat, plot_cam_background, plot_roc
+from ecgutils import get_n
 
-from vis.visualization import visualize_saliency, visualize_cam, visualize_activation
+from vis.visualization import visualize_cam
 from vis.utils import utils
-from keras import activations
+
 
 #%% Variables definition
+warnings.filterwarnings('ignore')
+
 SEED = 7
 WDIR = "C://Users//amont//Desktop//Thesis//"
-
+MODEL_LOAD = True
 #%% Data Loading
 glostrup = pd.read_csv(WDIR + 'glostrup_targets.csv')
 
@@ -59,66 +65,64 @@ y_train = y[train_index, :]
 y_test = y[test_index, :]
 
 #%% Define the network architecture
-model_sbrad = Sequential()
+if MODEL_LOAD is False:
+    model_sbrad = Sequential()
 
-model_sbrad.add(Conv1D(filters=64,
-                 kernel_size=10,
-                 input_shape=x_train[0].shape, 
-                 activation = "relu"))
+    model_sbrad.add(Conv1D(filters=64,
+                     kernel_size=10,
+                     input_shape=x_train[0].shape, 
+                     activation = "relu"))
+    
+    model_sbrad.add(Conv1D(filters=32,
+                     kernel_size=10,
+                     dilation_rate=3,
+                     activation='relu'))
+    
+    model_sbrad.add(Conv1D(filters=32,
+                     padding='valid',
+                     kernel_size=5,
+                     dilation_rate=5,
+                    activation="relu"))
+    
+    model_sbrad.add(Conv1D(filters=32,
+                     padding='valid',
+                     kernel_size=5,
+                     dilation_rate=5,
+                     activation="relu"))
+    
+    
+    model_sbrad.add(Conv1D(filters=32,
+                     padding='valid',
+                     kernel_size=3,
+                     dilation_rate=7, 
+                     activation="relu"))     
+    
+    #model_sbrad.add(Flatten())
+    model_sbrad.add(GlobalAveragePooling1D())
+    #model_sbrad.add(Dense(128, activation = 'relu'))
+    #model_sbrad.add(Dropout(0.2))
+    
+    model_sbrad.add(Dense(2, activation='sigmoid'))
+#   
 
-model_sbrad.add(Conv1D(filters=32,
-                 kernel_size=10,
-                 dilation_rate=3,
-                 activation='relu'))
+    weights = {True: 3,
+               False: 1}
+    
+    model_sbrad.compile(loss='categorical_crossentropy',
+                  optimizer=Adam(lr=0.0012,),
+                  metrics=['accuracy'])
 
-model_sbrad.add(Conv1D(filters=32,
-                 padding='valid',
-                 kernel_size=5,
-                 dilation_rate=5,
-                activation="relu"))
-
-model_sbrad.add(Conv1D(filters=32,
-                 padding='valid',
-                 kernel_size=5,
-                 dilation_rate=5,
-                 activation="relu"))
-
-
-model_sbrad.add(Conv1D(filters=32,
-                 padding='valid',
-                 kernel_size=3,
-                 dilation_rate=7, 
-                 activation="relu"))
-#model_sbrad.add(GlobalAveragePooling1D())
-         
-
-#model_sbrad.add(Flatten())
-model_sbrad.add(GlobalAveragePooling1D())
-#model_sbrad.add(Dense(128, activation = 'relu'))
-#model_sbrad.add(Dropout(0.2))
-
-model_sbrad.add(Dense(2, activation='sigmoid'))
-# %% Model specifics
-weights = {True: 3,
-           False: 1}
-
-model_sbrad.compile(loss='categorical_crossentropy',
-              optimizer=Adam(lr=0.0012,),
-              metrics=['accuracy'])
-
-#%% Trainig
-
-history = model_sbrad.fit(x_train, y_train, 
-                    batch_size=64, 
-                    epochs=100, 
-                    validation_data=(x_test, y_test),
-                    callbacks=[PlotLossesKeras()],
-                    verbose=1,
-                    class_weight=weights)
+    history = model_sbrad.fit(x_train, y_train, 
+                        batch_size=64, 
+                        epochs=100, 
+                        validation_data=(x_test, y_test),
+                        callbacks=[PlotLossesKeras()],
+                        verbose=1,
+                        class_weight=weights)
 
 #%% Model save/load
 
-model_sbrad = load_model(WDIR + "source/ISCE/models/sbrad_cnn_rhythm.hdf5")
+model_sbrad = load_model(WDIR + "source/src/mdl/sbrad_cnn_rhythm.hdf5")
 #model_sbrad.save(WDIR + "source/src/mdl/sbrad_GAP.hdf5")
 
 #%% Model evaluation
@@ -133,59 +137,90 @@ confusion = confusion_matrix(y_true, y_pred)
 test_acc = accuracy_score(y_true, y_pred)
 bal_test_acc = balanced_accuracy_score(y_true, y_pred)
 
-print('In the test set, there are %d positive, %d negative' % (sum(y_true), len(y_true) - sum(y_true)))
+f1 = f1_score(y_true, y_pred)
+print('In the test set, there are %d positive, %d negative' % (sum(y_true), 
+                                                               len(y_true) - sum(y_true)))
 
 print("The test accuracy is", test_acc)
 print("The balanced test accuracy is", bal_test_acc)   
-
+print("F1 score:", f1)
 plot_confusion_mat(confusion, ["False", "True"],cmap="Reds", normalize=False)
 
-#%% Misclassified analysis
-
-misclassified = y_true - y_pred
-
-false_positive = glostrup.loc[test_index[np.where(misclassified ==  -1)]]
-false_negative = glostrup.loc[test_index[np.where(misclassified ==  1)]]
 #%% Evaluation of the model
-f1_score = f1_score(y_true, y_pred)
+y_pred_sbrad = model_sbrad.predict(x_test)
 
-y_pred_sbrad = model_sbrad.predict(x_test).ravel()
-fpr_sbrad, tpr_sbrad, thresholds_sbrad = roc_curve(y_true, y_pred)
+fpr_sbrad, tpr_sbrad, thresholds_sbrad = roc_curve(y_true, y_pred_sbrad[:,1])
 auc_sbrad = auc(fpr_sbrad, tpr_sbrad)
+plot_roc(fpr_sbrad, tpr_sbrad, auc_sbrad)
 
-#%% Benchmark: smv with gaussian kernel, rf, logistic, decision tree, knn 
+#%% Benchmark: Linear Regression, Random Forest, KNN, SVM, Most frequent class 
+glostrup_baseline = pd.read_csv(WDIR + 'glostrup_targets.csv', sep = ',').dropna()
 
-#%% Saliency visualization
+X_clf = glostrup_baseline[["sexnumeric", "bmi","qrs","qt","pr","p_peak_amp_v5",
+                           "q_peak_amp_v5","r_peak_amp_v5", "s_peak_amp_v5", 
+                           "t_peak_amp_v5"]]
+y_clf = glostrup_baseline.sbrad
+
+models_clf = [LogisticRegression(),
+          RandomForestClassifier(),
+          KNeighborsClassifier(),
+          SVC(),
+          DummyClassifier(strategy="most_frequent")]
+
+names_clf = ["LR", 
+         "RF",
+         "KNN",
+         "SVM",
+         "Most Frequent"]
+
+scoring_clf = {'acc': 'accuracy',
+               'f1_micro': 'f1_micro',
+              'precision_micro': 'precision_micro',
+              'recall_micro':'recall_micro', 
+              'roc_auc': 'roc_auc'}
+results_clf = []
+
+for model, name in zip(models_clf, names_clf):
+    scores_clf = cross_validate(model, 
+                                X_clf, y_clf, 
+                                scoring=scoring_clf, 
+                                cv=10, 
+                                return_train_score=True)
+    
+    results_clf.append(scores_clf)
+    
+    msg = "%s: Accuracy: %.3f (%.3f); F1 score: %.2f; Precision: %.2f; Recall: %.2f; AUC: %.2f" % (name, 
+                                         scores_clf["test_acc"].mean(), 
+                                         scores_clf["test_acc"].std(), 
+                                         scores_clf["test_f1_micro"].mean(),
+                                         scores_clf['test_precision_micro'].mean(),
+                                         scores_clf['test_recall_micro'].mean(),
+                                         scores_clf['test_roc_auc'].mean())
+    print(msg)
+    print('\n')
+
+from sklearn.metrics import classification_report
+print(classification_report(y_true, y_pred))
+#%% Class activation map visualization
 layer_idx = -1
 model_sbrad.layers[layer_idx].activation = activations.linear
 model_sbrad = utils.apply_modifications(model_sbrad)
-#%%
-n = get_n(testid=4675, df=glostrup, index=test_index)
-example = (x_test[n, :, :]).astype(dtype=float)
-#%% Class activation Map 
+#%% Get expample from test_id
+n = get_n(testid=3, df=glostrup, index=train_index)
+
+example = (x_train[n, :, :]).astype(dtype=float)
+#%% Plot
 cam = visualize_cam(model_sbrad, layer_idx, filter_indices=1, seed_input=example, 
                     penultimate_layer_idx=None, backprop_modifier=None, grad_modifier=None)
 
 
-#plot_cam_rhythm_2(example,cam)
-plot_cam_background(example, smooth(cam,30), glostrup, n, "sbrad", y_test[n])
-#%%
+plot_cam_background(example, cam, glostrup, "Sinus Bradycardia", y_test[n])
+#%% Misclassified analysis
+misclassified = y_true - y_pred
 
-a = np.where(np.argmax(y_test,1)==1)[0]
-a = a[1:12]
-for n in a:
-    example = (x_test[n, :, :]).astype(dtype=float)
-    cam = visualize_cam(model_sbrad, layer_idx, filter_indices=1, seed_input=example, 
-                    penultimate_layer_idx=None, backprop_modifier=None, grad_modifier=None)
-
-
-    plot_cam_background(example,cam, glostrup, n, "sbrad", y_test[n])
-    
-    #plt.savefig('C://Users//amont//Desktop//Thesis//attention_plot/'+str(n)+'.png')    
-    
+false_positive = glostrup.loc[test_index[np.where(misclassified ==  -1)]]
+false_negative = glostrup.loc[test_index[np.where(misclassified ==  1)]]    
 #%% Reset session
-from keras import backend as K
-import tensorflow as tf
 curr_session = tf.get_default_session()
 # close current session
 if curr_session is not None:
