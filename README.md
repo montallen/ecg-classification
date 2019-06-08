@@ -9,7 +9,7 @@ Note that this is still an ongoing project.
 
 ### Authors
 - Alessandro Montemurro
-  DTU Compute, Biomedicinsk Institute, Unicersity of Copenhagen.
+  DTU Compute, Biomedicinsk Institute, University of Copenhagen.
  
  
 ### Description
